@@ -30,11 +30,11 @@ ifndef TOOLCHAIN
 TOOLCHAIN = arm-none-eabi
 endif
 
-ifneq (, $(shell which $(TOOLCHAIN)-gdb))
-GDB = $(TOOLCHAIN)-gdb
-else
-# This supersedes arm-none-eabi-gdb
+ifneq (, $(shell which gdb-multiarch))
 GDB = gdb-multiarch
+else
+# Toolchain-specific GDB is superseded by gdb-multiarch
+GDB = $(TOOLCHAIN)-gdb
 endif
 
 BUILD_DIR ?= .
