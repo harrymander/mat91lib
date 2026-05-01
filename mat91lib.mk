@@ -65,9 +65,9 @@ include $(MAT91LIB_FAMILY_DIR)/$(FAMILY).mk
 SCRIPTS = $(MAT91LIB_FAMILY_DIR)/scripts
 LDSCRIPTS = $(MAT91LIB_FAMILY_DIR)
 
-LD = $(TOOLCHAIN)-gcc
-
 CC = $(TOOLCHAIN)-gcc
+CXX = $(TOOLCHAIN)-g++
+LD = $(if $(CPPSRC),$(CXX),$(CC))
 OBJCOPY = $(TOOLCHAIN)-objcopy
 SIZE = $(TOOLCHAIN)-size
 DEL = rm -f
@@ -89,7 +89,10 @@ endif
 
 SRC += $(notdir $(MAT91LIB_SRC))
 VPATH += $(dir $(MAT91LIB_SRC))
-OBJS += $(addprefix $(OBJDIR)/, $(notdir $(SRC:.c=.o)))
+CSRC = $(filter %.c, $(SRC))
+CPPSRC = $(filter %.cpp, $(SRC))
+OBJS += $(addprefix $(OBJDIR)/, $(notdir $(CSRC:.c=.c.o)))
+OBJS += $(addprefix $(OBJDIR)/, $(notdir $(CPPSRC:.cpp=.cpp.o)))
 DEPS += $(OBJS:.o=.d)
 INCLUDES += -I. -I"$(MAT91LIB_DIR)"
 LDLIBS += -lm -lc
@@ -118,6 +121,9 @@ print-objs:
 print-cflags:
 	@echo $(CFLAGS)
 
+print-cxxflags:
+	@echo $(CXXFLAGS)
+
 print-ldflags:
 	@echo $(LDFLAGS)
 
@@ -133,11 +139,15 @@ print-vpath:
 print-includes:
 	@echo $(INCLUDES)
 
-# Rule to compile .c file to .o file.
-$(OBJDIR)/%.o: %.c Makefile
+$(OBJDIR)/%.c.o: %.c Makefile
 	@mkdir -p "$(@D)"
 	$(info CC $<)
 	$(Q)$(CC) $(CFLAGS) -MMD -MP -o $@ -c $<
+
+$(OBJDIR)/%.cpp.o: %.cpp Makefile
+	@mkdir -p "$(@D)"
+	$(info CXX $<)
+	$(Q)$(CXX) $(CXXFLAGS) -MMD -MP -o $@ -c $<
 
 # Include the dependency files.
 -include $(DEPS)
