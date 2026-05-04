@@ -98,6 +98,47 @@ def parse_makefile(path: PathLike | str) -> DriverInfo | None:
     )
 
 
+_cmake_main_library_setup = """\
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/utils.cmake)
+
+add_subdirectory(sam4s)
+if(DEFINED MCU)
+    get_mcu_family(${MCU} family)
+    set(FAMILY ${family} PARENT_SCOPE)
+    message(STATUS "Configuring mat91lib for ${MCU} (family: ${family})")
+
+    string(TOLOWER ${family} family_lower)
+    set(family_dir ${CMAKE_CURRENT_SOURCE_DIR}/${family_lower})
+    set(MAT91LIB_FAMILY_DIR ${family_dir} PARENT_SCOPE)
+
+    add_library(mat91lib INTERFACE)
+    target_include_directories(
+        mat91lib INTERFACE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${family_lower}
+    )
+    target_compile_definitions(mat91lib INTERFACE __${MCU}__ __${family}__)
+    target_link_libraries(mat91lib INTERFACE mat91lib::${family_lower})
+    target_link_options(mat91lib INTERFACE -L${family_dir} -T${MCU}-ROM.ld)
+    target_compile_options(mat91lib INTERFACE
+        # Prevent "ISO C++17 does not allow 'register' storage class specifier"
+        # warning from causing error:
+        $<$<COMPILE_LANGUAGE:CXX>:-Wno-error=register>
+    )
+
+    # Chip-specific peripheral libraries:
+    add_library(mat91lib::pit ALIAS mat91lib_${family_lower}_pit)
+    add_library(mat91lib::sysclock ALIAS mat91lib_${family_lower}_sysclock)
+    add_library(mat91lib::systick ALIAS mat91lib_${family_lower}_systick)
+else()
+    message(
+        WARNING
+        "MCU not defined - mat91lib core libraries won't be available."
+    )
+endif()
+"""
+
+
 def main() -> None:
     libs: list[str] = []
     for dir in (path for path in Path().iterdir() if path.is_dir()):
@@ -141,9 +182,9 @@ def main() -> None:
 
         project(mat91lib LANGUAGES C)
 
-        add_subdirectory(sam4s)
-        include(cmake/common.cmake)
         """))
+        f.write(_cmake_main_library_setup)
+        f.write("\n")
 
         for lib in libs:
             f.write(f"add_subdirectory({lib} EXCLUDE_FROM_ALL)\n")
